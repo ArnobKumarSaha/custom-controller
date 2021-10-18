@@ -1,0 +1,11 @@
+
+apiVersion: arnob.com/v1alpha1
+kind: Messi
+metadata:
+  name: messi-1
+spec:
+  deploymentImage: "nginx"
+  deploymentName: "depl-1"
+  serviceName: "svc-1"
+  servicePort: "8080"
+  replicas: 2
