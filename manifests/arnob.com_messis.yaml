@@ -45,6 +45,8 @@ spec:
                 type: string
               servicePort:
                 type: string
+              serviceType:
+                type: string
             required:
             - deploymentImage
             - deploymentName

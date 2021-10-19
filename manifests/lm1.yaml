@@ -7,5 +7,6 @@ spec:
   deploymentImage: "nginx"
   deploymentName: "depl-1"
   serviceName: "svc-1"
-  servicePort: "8080"
+  servicePort: "80"
+  serviceType: "NodePort"
   replicas: 2

@@ -28,12 +28,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appsinformers "k8s.io/client-go/informers/apps/v1"
-	//coreinformers "k8s.io/client-go/informers/core/v1"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	appslisters "k8s.io/client-go/listers/apps/v1"
-	//corelisters "k8s.io/client-go/listers/core/v1"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -71,7 +71,10 @@ type Controller struct {
 	sampleclientset myclientset.Interface
 
 	deploymentsLister appslisters.DeploymentLister
+	serviceLister corelisters.ServiceLister
 	deploymentsSynced cache.InformerSynced
+	serviceSynced cache.InformerSynced
+
 	messiLister        mylisters.MessiLister
 	messiSynced        cache.InformerSynced
 
@@ -100,6 +103,7 @@ func NewCombo(
 	kubeclientset kubernetes.Interface,
 	sampleclientset myclientset.Interface,
 	deploymentInformer appsinformers.DeploymentInformer,
+	serviceInformer coreinformers.ServiceInformer,
 	messiInformer myinformers.MessiInformer) *Controller {
 
 	// Create event broadcaster
@@ -112,6 +116,8 @@ func NewCombo(
 		sampleclientset:   sampleclientset,
 		deploymentsLister: deploymentInformer.Lister(),
 		deploymentsSynced: deploymentInformer.Informer().HasSynced,
+		serviceLister: serviceInformer.Lister(),
+		serviceSynced: serviceInformer.Informer().HasSynced,
 		messiLister:        messiInformer.Lister(),
 		messiSynced:        messiInformer.Informer().HasSynced,
 		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "messis"),
@@ -147,6 +153,19 @@ func NewCombo(
 		DeleteFunc: controller.deploymentAdderFunction,
 	})
 
+	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.serviceAdderFunction,
+		UpdateFunc: func(old, new interface{}) {
+			newSvc := new.(*corev1.Service)
+			oldSvc := old.(*corev1.Service)
+			if newSvc.ResourceVersion == oldSvc.ResourceVersion {
+				return
+			}
+			controller.serviceAdderFunction(new)
+		},
+		DeleteFunc: controller.serviceAdderFunction,
+	})
+
 	return controller
 }
 
@@ -171,7 +190,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced, c.messiSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced, c.serviceSynced, c.messiSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -286,11 +305,27 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
+	servicename := messi.Spec.ServiceName
+	if servicename == "" {
+		// We choose to absorb the error here as the worker would requeue the
+		// resource otherwise. Instead, the next time the resource is updated
+		// the resource will be queued again.
+		utilruntime.HandleError(fmt.Errorf("%s: Service name must be specified", key))
+		return nil
+	}
+
 	// Get the deployment with the name specified in messi.spec
 	deployment, err := c.deploymentsLister.Deployments(messi.Namespace).Get(deploymentName)
 	// If the resource doesn't exist, we'll create it
 	if errors.IsNotFound(err) {
 		deployment, err = c.kubeclientset.AppsV1().Deployments(messi.Namespace).Create(context.TODO(), newDeployment(messi), metav1.CreateOptions{})
+	}
+
+	// Get the service with the name specified in messi.spec
+	svc, err := c.serviceLister.Services(messi.Namespace).Get(servicename)
+	// If the resource doesn't exist, we'll create it
+	if errors.IsNotFound(err) {
+		svc, err = c.kubeclientset.CoreV1().Services(messi.Namespace).Create(context.TODO(), newService(messi), metav1.CreateOptions{})
 	}
 
 	// If an error occurs during Get/Create, we'll requeue the item so we can
@@ -308,6 +343,12 @@ func (c *Controller) syncHandler(key string) error {
 		return fmt.Errorf("%s", msg)
 	}
 
+	if !metav1.IsControlledBy(svc, messi) {
+		msg := fmt.Sprintf(MessageResourceExists, svc.Name)
+		c.recorder.Event(messi, corev1.EventTypeWarning, ErrResourceExists, msg)
+		return fmt.Errorf("%s", msg)
+	}
+
 	// If this number of the replicas on the messi resource is specified, and the
 	// number does not equal the current desired replicas on the Deployment, we
 	// should update the Deployment resource.
@@ -315,6 +356,8 @@ func (c *Controller) syncHandler(key string) error {
 		klog.V(4).Infof("messi %s replicas: %d, deployment replicas: %d", name, *messi.Spec.Replicas, *deployment.Spec.Replicas)
 		deployment, err = c.kubeclientset.AppsV1().Deployments(messi.Namespace).Update(context.TODO(), newDeployment(messi), metav1.UpdateOptions{})
 	}
+
+	// this has not been replicated.
 
 	// If an error occurs during Update, we'll requeue the item so we can
 	// attempt processing again later. This could have been caused by a
@@ -325,7 +368,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	// Finally, we update the status block of the messi resource to reflect the
 	// current state of the world
-	err = c.updateMessiStatus(messi, deployment)
+	err = c.updateMessiStatus(messi, deployment, svc)
 	if err != nil {
 		return err
 	}
@@ -335,7 +378,7 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 
-func (c *Controller) updateMessiStatus(messi *myv1alpha1.Messi, deployment *appsv1.Deployment) error {
+func (c *Controller) updateMessiStatus(messi *myv1alpha1.Messi, deployment *appsv1.Deployment, svc *corev1.Service) error {
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
 	// Or create a copy manually for better performance
@@ -371,6 +414,42 @@ func (c *Controller) messiAdderFunction(obj interface{}) {
 // have an appropriate OwnerReference, it will simply be skipped.
 func (c *Controller) deploymentAdderFunction(obj interface{}) {
 	fmt.Println("deploymentAdderFunction is called")
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+			return
+		}
+		klog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+	}
+	klog.V(4).Infof("Processing object: %s", object.GetName())
+	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
+		// If this object is not owned by a messi, we should not do anything more
+		// with it.
+		if ownerRef.Kind != "messi" {
+			return
+		}
+
+		messi, err := c.messiLister.Messis(object.GetNamespace()).Get(ownerRef.Name)
+		if err != nil {
+			klog.V(4).Infof("ignoring orphaned object '%s' of messi '%s'", object.GetSelfLink(), ownerRef.Name)
+			return
+		}
+
+		c.messiAdderFunction(messi)
+		return
+	}
+}
+
+func (c *Controller) serviceAdderFunction(obj interface{}) {
+	fmt.Println("serviceAdderFunction is called")
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {

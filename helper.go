@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"strconv"
 )
 
 // newDeployment creates a new Deployment for a messi resource. It also sets
@@ -48,31 +49,51 @@ func newDeployment(lm10 *myv1alpha1.Messi) *appsv1.Deployment {
 	}
 }
 
-func newService() *corev1.Service {
-	// ctx := context.TODO()
+func newService(lm10 *myv1alpha1.Messi) *corev1.Service {
+	fmt.Println("newService is called")
+	labels := map[string]string{
+		"app":       lm10.Spec.DeploymentImage,
+		"controller": lm10.Name,
+	}
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "mysvc",
+			Name:      lm10.Spec.ServiceName,
+			Namespace: lm10.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(lm10, myv1alpha1.SchemeGroupVersion.WithKind("Messi")),
+			},
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				"app": "demo",
-			},
-			Type: corev1.ServiceTypeNodePort,
+			Selector: labels,
+			Type: getTheServiceType(lm10.Spec.ServiceType),
 			Ports: []corev1.ServicePort{
 				{
-					NodePort: int32(30012),
-					Port: 2345,
+					NodePort: int32(30011),
+					Port: stringToInt(lm10.Spec.ServicePort),
 					TargetPort: intstr.IntOrString{
-						IntVal: 8080,
+						IntVal: 80,
 					},
 				},
 			},
 		},
 	}
-	/*_, err:= svcClient.Create(ctx,&svc, metav1.CreateOptions{})
+}
+
+func getTheServiceType(s string) corev1.ServiceType {
+	if s == "NodePort"{
+		return corev1.ServiceTypeNodePort
+	} else if s == "ClusterIP" {
+		return corev1.ServiceTypeClusterIP
+	}
+	return corev1.ServiceTypeClusterIP
+}
+
+func stringToInt(s string) int32 {
+	x, err := strconv.Atoi(s)
 	if err != nil {
-		fmt.Println(err)
-	}*/
+		fmt.Println("Err in stringToInt().", err)
+		return 0
+	}
+	return int32(x)
 }

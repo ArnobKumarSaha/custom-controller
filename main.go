@@ -59,6 +59,7 @@ func main() {
 
 	combo := NewCombo(kubeClient, exampleClient,
 		kubeInformerFactory.Apps().V1().Deployments(),
+		kubeInformerFactory.Core().V1().Services(),
 		exampleInformerFactory.Arnob().V1alpha1().Messis())
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
