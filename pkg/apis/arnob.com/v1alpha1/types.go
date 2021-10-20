@@ -23,8 +23,9 @@ type MessiSpec struct {
 	DeploymentImage string `json:"deploymentImage"`
 	Replicas       *int32 `json:"replicas"`
 	ServiceName 	string `json:"serviceName"`
-	ServicePort 	string `json:"servicePort"`
+	ServicePort 	int32 `json:"servicePort"`
 	ServiceType     string `json:"serviceType"`
+	ServiceTargetPort int32 `json:"serviceTargetPort"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

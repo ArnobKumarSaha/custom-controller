@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
+	"strings"
 )
 
 // newDeployment creates a new Deployment for a messi resource. It also sets
@@ -16,7 +17,7 @@ import (
 func newDeployment(lm10 *myv1alpha1.Messi) *appsv1.Deployment {
 	fmt.Println("newDeployment is called")
 	labels := map[string]string{
-		"app":       lm10.Spec.DeploymentImage,
+		"app":       trimTheOwnerPartFromImageName(lm10.Spec.DeploymentImage),
 		"controller": lm10.Name,
 	}
 	return &appsv1.Deployment{
@@ -41,6 +42,11 @@ func newDeployment(lm10 *myv1alpha1.Messi) *appsv1.Deployment {
 						{
 							Name:  "messi-container",
 							Image: lm10.Spec.DeploymentImage,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: lm10.Spec.ServiceTargetPort,
+								},
+							},
 						},
 					},
 				},
@@ -52,7 +58,7 @@ func newDeployment(lm10 *myv1alpha1.Messi) *appsv1.Deployment {
 func newService(lm10 *myv1alpha1.Messi) *corev1.Service {
 	fmt.Println("newService is called")
 	labels := map[string]string{
-		"app":       lm10.Spec.DeploymentImage,
+		"app":       trimTheOwnerPartFromImageName(lm10.Spec.DeploymentImage),
 		"controller": lm10.Name,
 	}
 
@@ -70,14 +76,22 @@ func newService(lm10 *myv1alpha1.Messi) *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					NodePort: int32(30011),
-					Port: stringToInt(lm10.Spec.ServicePort),
+					Port: lm10.Spec.ServicePort,
 					TargetPort: intstr.IntOrString{
-						IntVal: 80,
+						IntVal: lm10.Spec.ServiceTargetPort,
 					},
 				},
 			},
 		},
 	}
+}
+
+func trimTheOwnerPartFromImageName(s string) string {
+	arr := strings.Split(s, "/")
+	if len(arr) == 1{
+		return arr[0]
+	}
+	return arr[1]
 }
 
 func getTheServiceType(s string) corev1.ServiceType {

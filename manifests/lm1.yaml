@@ -4,9 +4,10 @@ kind: Messi
 metadata:
   name: messi-1
 spec:
-  deploymentImage: "nginx"
-  deploymentName: "depl-1"
-  serviceName: "svc-1"
-  servicePort: "80"
+  deploymentImage: "arnobkumarsaha/learning_go"
+  deploymentName: "my-api-server"
+  serviceName: "listener-service"
+  servicePort: 8090
   serviceType: "NodePort"
+  serviceTargetPort: 8080
   replicas: 2

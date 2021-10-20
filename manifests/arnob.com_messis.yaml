@@ -44,7 +44,11 @@ spec:
               serviceName:
                 type: string
               servicePort:
-                type: string
+                format: int32
+                type: integer
+              serviceTargetPort:
+                format: int32
+                type: integer
               serviceType:
                 type: string
             required:
@@ -53,6 +57,8 @@ spec:
             - replicas
             - serviceName
             - servicePort
+            - serviceTargetPort
+            - serviceType
             type: object
           status:
             properties:

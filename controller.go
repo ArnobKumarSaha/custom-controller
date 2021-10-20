@@ -63,6 +63,20 @@ const (
 	MessageResourceSynced = "Messi synced successfully"
 )
 
+type DeploymentListerAndSynced struct {
+	deploymentsLister appslisters.DeploymentLister
+	deploymentsSynced cache.InformerSynced
+}
+type ServiceListerAndSynced struct {
+	serviceLister corelisters.ServiceLister
+	serviceSynced cache.InformerSynced
+}
+type MessiListerAndSynced struct {
+	messiLister        mylisters.MessiLister
+	messiSynced        cache.InformerSynced
+}
+
+
 // Controller is the controller implementation for messi resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -70,13 +84,9 @@ type Controller struct {
 	// sampleclientset is a clientset for our own API group
 	sampleclientset myclientset.Interface
 
-	deploymentsLister appslisters.DeploymentLister
-	serviceLister corelisters.ServiceLister
-	deploymentsSynced cache.InformerSynced
-	serviceSynced cache.InformerSynced
-
-	messiLister        mylisters.MessiLister
-	messiSynced        cache.InformerSynced
+	DeploymentListerAndSynced
+	ServiceListerAndSynced
+	MessiListerAndSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -114,12 +124,19 @@ func NewCombo(
 	controller := &Controller{
 		kubeclientset:     kubeclientset,
 		sampleclientset:   sampleclientset,
-		deploymentsLister: deploymentInformer.Lister(),
-		deploymentsSynced: deploymentInformer.Informer().HasSynced,
-		serviceLister: serviceInformer.Lister(),
-		serviceSynced: serviceInformer.Informer().HasSynced,
-		messiLister:        messiInformer.Lister(),
-		messiSynced:        messiInformer.Informer().HasSynced,
+		DeploymentListerAndSynced: DeploymentListerAndSynced{
+			deploymentsLister: deploymentInformer.Lister(),
+			deploymentsSynced: deploymentInformer.Informer().HasSynced,
+		},
+		ServiceListerAndSynced: ServiceListerAndSynced{
+			serviceLister: serviceInformer.Lister(),
+			serviceSynced: serviceInformer.Informer().HasSynced,
+		},
+		MessiListerAndSynced: MessiListerAndSynced{
+			messiLister:        messiInformer.Lister(),
+			messiSynced:        messiInformer.Informer().HasSynced,
+		},
+
 		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "messis"),
 		recorder:          createRecorder(kubeclientset),
 	}
@@ -131,6 +148,7 @@ func NewCombo(
 		UpdateFunc: func(old, new interface{}) {
 			controller.messiAdderFunction(new)
 		},
+		DeleteFunc: controller.messiDeleteFunction,
 	})
 	// Set up an event handler for when Deployment resources change. This
 	// handler will lookup the owner of the given Deployment, and if it is
@@ -150,7 +168,7 @@ func NewCombo(
 			}
 			controller.deploymentAdderFunction(new)
 		},
-		DeleteFunc: controller.deploymentAdderFunction,
+		DeleteFunc: controller.deploymentDeleteFunction,
 	})
 
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -163,7 +181,7 @@ func NewCombo(
 			}
 			controller.serviceAdderFunction(new)
 		},
-		DeleteFunc: controller.serviceAdderFunction,
+		DeleteFunc: controller.serviceDeleteFunction,
 	})
 
 	return controller
@@ -197,7 +215,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) error {
 	klog.Info("Starting workers")
 	// Launch two workers to process messi resources
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
+		go wait.Until(c.runWorker, time.Second * 5, stopCh)
 	}
 
 	klog.Info("Started workers")
@@ -393,96 +411,6 @@ func (c *Controller) updateMessiStatus(messi *myv1alpha1.Messi, deployment *apps
 	return err
 }
 
-// enqueuemessi takes a messi resource and converts it into a namespace/name
-// string which is then put onto the work queue. This method should *not* be
-// passed resources of any type other than messi.
-func (c *Controller) messiAdderFunction(obj interface{}) {
-	fmt.Println("messiAdderFunction is called")
-	var key string
-	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-		utilruntime.HandleError(err)
-		return
-	}
-	c.workqueue.Add(key)
-}
-
-// handleObject will take any resource implementing metav1.Object and attempt
-// to find the messi resource that 'owns' it. It does this by looking at the
-// objects metadata.ownerReferences field for an appropriate OwnerReference.
-// It then enqueues that messi resource to be processed. If the object does not
-// have an appropriate OwnerReference, it will simply be skipped.
-func (c *Controller) deploymentAdderFunction(obj interface{}) {
-	fmt.Println("deploymentAdderFunction is called")
-	var object metav1.Object
-	var ok bool
-	if object, ok = obj.(metav1.Object); !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		object, ok = tombstone.Obj.(metav1.Object)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		klog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
-	}
-	klog.V(4).Infof("Processing object: %s", object.GetName())
-	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		// If this object is not owned by a messi, we should not do anything more
-		// with it.
-		if ownerRef.Kind != "messi" {
-			return
-		}
-
-		messi, err := c.messiLister.Messis(object.GetNamespace()).Get(ownerRef.Name)
-		if err != nil {
-			klog.V(4).Infof("ignoring orphaned object '%s' of messi '%s'", object.GetSelfLink(), ownerRef.Name)
-			return
-		}
-
-		c.messiAdderFunction(messi)
-		return
-	}
-}
-
-func (c *Controller) serviceAdderFunction(obj interface{}) {
-	fmt.Println("serviceAdderFunction is called")
-	var object metav1.Object
-	var ok bool
-	if object, ok = obj.(metav1.Object); !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		object, ok = tombstone.Obj.(metav1.Object)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		klog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
-	}
-	klog.V(4).Infof("Processing object: %s", object.GetName())
-	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		// If this object is not owned by a messi, we should not do anything more
-		// with it.
-		if ownerRef.Kind != "messi" {
-			return
-		}
-
-		messi, err := c.messiLister.Messis(object.GetNamespace()).Get(ownerRef.Name)
-		if err != nil {
-			klog.V(4).Infof("ignoring orphaned object '%s' of messi '%s'", object.GetSelfLink(), ownerRef.Name)
-			return
-		}
-
-		c.messiAdderFunction(messi)
-		return
-	}
-}
 
 
 
