@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned"
-	arnobv1alpha1 "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned/typed/arnob.com/v1alpha1"
-	fakearnobv1alpha1 "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned/typed/arnob.com/v1alpha1/fake"
+	clientset "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned"
+	arnobv1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned/typed/arnob.com/v1alpha1"
+	fakearnobv1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned/typed/arnob.com/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

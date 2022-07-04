@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # change this fields according to yours
-packagename=github.com/Arnobkumarsaha/messi
+packagename=github.com/Arnobkumarsaha/custom-controller
 groupname=arnob.com
 versionname=v1alpha1
 
@@ -14,6 +14,7 @@ mkdir -p $k8spath
 cd $k8spath && git clone https://github.com/kubernetes/code-generator.git
 
 # cd $depelopmentDir && go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5
+# cd $depelopmentDir && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5
 
 
 # Generate clientset, informers & listers

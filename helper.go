@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	myv1alpha1 "github.com/Arnobkumarsaha/messi/pkg/apis/arnob.com/v1alpha1"
+	myv1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/apis/arnob.com/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +17,7 @@ import (
 func newDeployment(lm10 *myv1alpha1.Messi) *appsv1.Deployment {
 	fmt.Println("newDeployment is called")
 	labels := map[string]string{
-		"app":       trimTheOwnerPartFromImageName(lm10.Spec.DeploymentImage),
+		"app":        trimTheOwnerPartFromImageName(lm10.Spec.DeploymentImage),
 		"controller": lm10.Name,
 	}
 	return &appsv1.Deployment{
@@ -58,7 +58,7 @@ func newDeployment(lm10 *myv1alpha1.Messi) *appsv1.Deployment {
 func newService(lm10 *myv1alpha1.Messi) *corev1.Service {
 	fmt.Println("newService is called")
 	labels := map[string]string{
-		"app":       trimTheOwnerPartFromImageName(lm10.Spec.DeploymentImage),
+		"app":        trimTheOwnerPartFromImageName(lm10.Spec.DeploymentImage),
 		"controller": lm10.Name,
 	}
 
@@ -72,11 +72,11 @@ func newService(lm10 *myv1alpha1.Messi) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
-			Type: getTheServiceType(lm10.Spec.ServiceType),
+			Type:     getTheServiceType(lm10.Spec.ServiceType),
 			Ports: []corev1.ServicePort{
 				{
 					NodePort: int32(30011),
-					Port: lm10.Spec.ServicePort,
+					Port:     lm10.Spec.ServicePort,
 					TargetPort: intstr.IntOrString{
 						IntVal: lm10.Spec.ServiceTargetPort,
 					},
@@ -88,14 +88,14 @@ func newService(lm10 *myv1alpha1.Messi) *corev1.Service {
 
 func trimTheOwnerPartFromImageName(s string) string {
 	arr := strings.Split(s, "/")
-	if len(arr) == 1{
+	if len(arr) == 1 {
 		return arr[0]
 	}
 	return arr[1]
 }
 
 func getTheServiceType(s string) corev1.ServiceType {
-	if s == "NodePort"{
+	if s == "NodePort" {
 		return corev1.ServiceTypeNodePort
 	} else if s == "ClusterIP" {
 		return corev1.ServiceTypeClusterIP

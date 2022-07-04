@@ -22,8 +22,8 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/Arnobkumarsaha/messi/pkg/apis/arnob.com/v1alpha1"
-	scheme "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/apis/arnob.com/v1alpha1"
+	scheme "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

@@ -39,11 +39,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	myv1alpha1 "github.com/Arnobkumarsaha/messi/pkg/apis/arnob.com/v1alpha1"
-	myclientset "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned"
-	myclientscheme "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned/scheme"
-	myinformers "github.com/Arnobkumarsaha/messi/pkg/client/informers/externalversions/arnob.com/v1alpha1"
-	mylisters "github.com/Arnobkumarsaha/messi/pkg/client/listers/arnob.com/v1alpha1"
+	myv1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/apis/arnob.com/v1alpha1"
+	myclientset "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned"
+	myclientscheme "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned/scheme"
+	myinformers "github.com/Arnobkumarsaha/custom-controller/pkg/client/informers/externalversions/arnob.com/v1alpha1"
+	mylisters "github.com/Arnobkumarsaha/custom-controller/pkg/client/listers/arnob.com/v1alpha1"
 )
 
 const controllerAgentName = "my-custom-controller"
@@ -72,10 +72,9 @@ type ServiceListerAndSynced struct {
 	serviceSynced cache.InformerSynced
 }
 type MessiListerAndSynced struct {
-	messiLister        mylisters.MessiLister
-	messiSynced        cache.InformerSynced
+	messiLister mylisters.MessiLister
+	messiSynced cache.InformerSynced
 }
-
 
 // Controller is the controller implementation for messi resources
 type Controller struct {
@@ -122,8 +121,8 @@ func NewCombo(
 	utilruntime.Must(myclientscheme.AddToScheme(scheme.Scheme))
 
 	controller := &Controller{
-		kubeclientset:     kubeclientset,
-		sampleclientset:   sampleclientset,
+		kubeclientset:   kubeclientset,
+		sampleclientset: sampleclientset,
 		DeploymentListerAndSynced: DeploymentListerAndSynced{
 			deploymentsLister: deploymentInformer.Lister(),
 			deploymentsSynced: deploymentInformer.Informer().HasSynced,
@@ -133,12 +132,12 @@ func NewCombo(
 			serviceSynced: serviceInformer.Informer().HasSynced,
 		},
 		MessiListerAndSynced: MessiListerAndSynced{
-			messiLister:        messiInformer.Lister(),
-			messiSynced:        messiInformer.Informer().HasSynced,
+			messiLister: messiInformer.Lister(),
+			messiSynced: messiInformer.Informer().HasSynced,
 		},
 
-		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "messis"),
-		recorder:          createRecorder(kubeclientset),
+		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "messis"),
+		recorder:  createRecorder(kubeclientset),
 	}
 
 	klog.Info("Setting up event handlers")
@@ -187,13 +186,6 @@ func NewCombo(
 	return controller
 }
 
-
-
-
-
-
-
-
 // Run will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
@@ -215,7 +207,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) error {
 	klog.Info("Starting workers")
 	// Launch two workers to process messi resources
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.runWorker, time.Second * 5, stopCh)
+		go wait.Until(c.runWorker, time.Second*5, stopCh)
 	}
 
 	klog.Info("Started workers")
@@ -395,7 +387,6 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-
 func (c *Controller) updateMessiStatus(messi *myv1alpha1.Messi, deployment *appsv1.Deployment, svc *corev1.Service) error {
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
@@ -410,26 +401,3 @@ func (c *Controller) updateMessiStatus(messi *myv1alpha1.Messi, deployment *apps
 	_, err := c.sampleclientset.ArnobV1alpha1().Messis(messi.Namespace).Update(context.TODO(), messiCopy, metav1.UpdateOptions{})
 	return err
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

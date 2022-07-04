@@ -27,8 +27,8 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	myclientset "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned"
-	myinformers "github.com/Arnobkumarsaha/messi/pkg/client/informers/externalversions"
+	myclientset "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned"
+	myinformers "github.com/Arnobkumarsaha/custom-controller/pkg/client/informers/externalversions"
 	"k8s.io/sample-controller/pkg/signals"
 )
 
@@ -82,4 +82,4 @@ func init() {
 
 /*
 "${execDir}"/generate-groups.sh all github.com/Arnobkumarsaha/messi/pkg/client github.com/Arnobkumarsaha/messi/pkg/apis arnob.com:v1alpha1 --go-header-file "${execDir}"/hack/boilerplate.go.txt
- */
+*/

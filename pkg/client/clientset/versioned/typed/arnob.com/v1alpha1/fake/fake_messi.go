@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	v1alpha1 "github.com/Arnobkumarsaha/messi/pkg/apis/arnob.com/v1alpha1"
+	v1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/apis/arnob.com/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -117,7 +117,7 @@ func (c *FakeMessis) UpdateStatus(ctx context.Context, messi *v1alpha1.Messi, op
 // Delete takes name of the messi and deletes it. Returns an error if one occurs.
 func (c *FakeMessis) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(messisResource, c.ns, name), &v1alpha1.Messi{})
+		Invokes(testing.NewDeleteActionWithOptions(messisResource, c.ns, name, opts), &v1alpha1.Messi{})
 
 	return err
 }

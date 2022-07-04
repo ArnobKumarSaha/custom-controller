@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/Arnobkumarsaha/messi/pkg/client/clientset/versioned"
-	arnobcom "github.com/Arnobkumarsaha/messi/pkg/client/informers/externalversions/arnob.com"
-	internalinterfaces "github.com/Arnobkumarsaha/messi/pkg/client/informers/externalversions/internalinterfaces"
+	versioned "github.com/Arnobkumarsaha/custom-controller/pkg/client/clientset/versioned"
+	arnobcom "github.com/Arnobkumarsaha/custom-controller/pkg/client/informers/externalversions/arnob.com"
+	internalinterfaces "github.com/Arnobkumarsaha/custom-controller/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

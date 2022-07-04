@@ -19,8 +19,8 @@ limitations under the License.
 package arnob
 
 import (
-	v1alpha1 "github.com/Arnobkumarsaha/messi/pkg/client/informers/externalversions/arnob.com/v1alpha1"
-	internalinterfaces "github.com/Arnobkumarsaha/messi/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/Arnobkumarsaha/custom-controller/pkg/client/informers/externalversions/arnob.com/v1alpha1"
+	internalinterfaces "github.com/Arnobkumarsaha/custom-controller/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.
